@@ -1,6 +1,6 @@
 import { WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { JWT_SECRET } from "./config";
+import { JWT_SECRET } from '@repo/backend-common';
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -30,7 +30,7 @@ wss.on("connection", (ws, request) => {
     return;
   }
 
-  //  narrow payload shape
+  // narrow payload shape
   if (
     typeof decoded !== "object" ||
     decoded === null ||
@@ -40,7 +40,7 @@ wss.on("connection", (ws, request) => {
     return;
   }
 
-  // ✅ Step 4: now it is safe
+  // Step 4: now it is safe
   const payload = decoded as JwtPayload & { userId: string };
 
   console.log("Connected user:", payload.userId);
