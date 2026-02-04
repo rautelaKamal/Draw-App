@@ -1,24 +1,25 @@
 {
   "name": "@repo/db",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    "./client": "./src/index.ts"
-},
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "generate": "prisma generate",
+    "build": "pnpm run generate && tsc -b"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "dotenv": "^17.2.3"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "prisma": "^7.3.0"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "@prisma/client": "^7.3.0",
-    "dotenv": "^17.2.3"
+    "prisma": "^6.19.2"
   }
 }
