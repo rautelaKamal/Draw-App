@@ -14,7 +14,7 @@
     "express": "^5.2.1",
     "@repo/db": "workspace:*"
   },
-  "devDependencies" : {
+  "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@repo/backend-common": "workspace:*",
     "@types/ws": "^8.18.1",
@@ -23,5 +23,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "module"
 }

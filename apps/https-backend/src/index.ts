@@ -1,8 +1,8 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from '@repo/backend-common';
-import { middleware } from "./middleware";
-import {CreateUserSchema,CreateRoomSchema,SigninSchema} from "@repo/common/types";
+import { middleware } from "./middleware.js";
+import { CreateUserSchema, CreateRoomSchema, SigninSchema } from "@repo/common/types";
 import { prisma } from "@repo/db";
 const app = express();
 app.use(express.json())
@@ -34,37 +34,37 @@ app.post("/signup", async (req, res) => {
     });
   }
 });
-  
-  
-app.post("/signin",(req,res)=>{
-   const data = SigninSchema.safeParse(req.body);
-    if(!data.success){
-      return res.json({
-        message: "incorrect inputs"
-      })
-      return;
-    }
+
+
+app.post("/signin", (req, res) => {
+  const data = SigninSchema.safeParse(req.body);
+  if (!data.success) {
+    return res.json({
+      message: "incorrect inputs"
+    })
+    return;
+  }
   const userId = 1;
   const token = jwt.sign({
-    userId 
-  },JWT_SECRET)
-  
+    userId
+  }, JWT_SECRET)
+
   res.json({
     token
   })
 })
 
-app.post("/room ",middleware,(req,res)=>{
-   const data = CreateRoomSchema.safeParse(req.body);
-    if(!data.success){
-      return res.json({
-        message: "incorrect inputs"
-      })
-      return;
-    }
+app.post("/room ", middleware, (req, res) => {
+  const data = CreateRoomSchema.safeParse(req.body);
+  if (!data.success) {
+    return res.json({
+      message: "incorrect inputs"
+    })
+    return;
+  }
   // db call 
   res.json({
-    roomId:123
+    roomId: 123
   })
 
 })
