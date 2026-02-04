@@ -13,7 +13,9 @@
     "@types/express": "^5.0.6",
     "express": "^5.2.1",
     "@repo/db": "workspace:*",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "bcrypt": "^5.1.1",
+    "@types/bcrypt": "^5.0.2"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

@@ -1,5 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import { JWT_SECRET } from '@repo/backend-common';
 import { middleware } from "./middleware.js";
 import { CreateUserSchema, CreateRoomSchema, SigninSchema } from "@repo/common/types";
@@ -16,10 +17,13 @@ app.post("/signup", async (req, res) => {
   }
 
   try {
+    // Hash the password before storing
+    const hashedPassword = await bcrypt.hash(parsedData.data.password, 10);
+
     const user = await prisma.user.create({
       data: {
         email: parsedData.data.username,
-        password: parsedData.data.password,
+        password: hashedPassword,
         name: parsedData.data.name
       }
     });
@@ -47,36 +51,76 @@ app.post("/signup", async (req, res) => {
 });
 
 
-app.post("/signin", (req, res) => {
-  const data = SigninSchema.safeParse(req.body);
-  if (!data.success) {
+app.post("/signin", async (req, res) => {
+  const parsedData = SigninSchema.safeParse(req.body);
+  if (!parsedData.success) {
     return res.json({
       message: "incorrect inputs"
-    })
-    return;
+    });
   }
-  const userId = 1;
+
+  // Find user by email only
+  const user = await prisma.user.findFirst({
+    where: {
+      email: parsedData.data.username
+    }
+  });
+
+  if (!user) {
+    return res.status(411).json({
+      message: "User not found"
+    });
+  }
+
+  // Compare the provided password with the hashed password
+  const isPasswordValid = await bcrypt.compare(parsedData.data.password, user.password);
+
+  if (!isPasswordValid) {
+    return res.status(411).json({
+      message: "Invalid password"
+    });
+  }
+
   const token = jwt.sign({
-    userId
-  }, JWT_SECRET)
+    userId: user.id
+  }, JWT_SECRET);
 
   res.json({
     token
-  })
+  });
 })
 
-app.post("/room ", middleware, (req, res) => {
-  const data = CreateRoomSchema.safeParse(req.body);
-  if (!data.success) {
+app.post("/room", middleware, async (req, res) => {
+  const parsedData = CreateRoomSchema.safeParse(req.body);
+  if (!parsedData.success) {
     return res.json({
       message: "incorrect inputs"
-    })
-    return;
+    });
   }
-  // db call 
-  res.json({
-    roomId: 123
-  })
+
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(403).json({
+      message: "Unauthorized"
+    });
+  }
+  try {
+    const room = await prisma.room.create({
+      data: {
+        slug: parsedData.data.name,
+        adminId: userId
+      }
+    })
+    res.json({
+      roomId: room.id
+    })
+  } catch (e: any) {
+    console.error("Room creation error:", e);
+    res.status(500).json({
+      message: "Error creating room",
+      error: e.message
+    });
+  }
 
 })
 
