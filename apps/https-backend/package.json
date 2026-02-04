@@ -12,7 +12,8 @@
     "@repo/typescript-config": "workspace:*",
     "@types/express": "^5.0.6",
     "express": "^5.2.1",
-    "@repo/db": "workspace:*"
+    "@repo/db": "workspace:*",
+    "dotenv": "^17.2.3"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

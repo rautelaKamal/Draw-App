@@ -16,8 +16,7 @@ app.post("/signup", async (req, res) => {
   }
 
   try {
-
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email: parsedData.data.username,
         password: parsedData.data.password,
@@ -26,11 +25,23 @@ app.post("/signup", async (req, res) => {
     });
 
     res.json({
-      roomId: 123
+      message: "User created successfully",
+      userId: user.id
     });
-  } catch (e) {
-    res.status(411).json({
-      message: "User already existed with this username"
+  } catch (e: any) {
+    console.error("Signup error:", e);
+
+    // Check if it's a unique constraint violation (duplicate email)
+    if (e.code === 'P2002') {
+      return res.status(411).json({
+        message: "User already exists with this username"
+      });
+    }
+
+    // Other database or connection errors
+    res.status(500).json({
+      message: "Error creating user",
+      error: e.message
     });
   }
 });
