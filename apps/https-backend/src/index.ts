@@ -1,6 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+import * as bcrypt from "bcrypt";
 import { JWT_SECRET } from '@repo/backend-common';
 import { middleware } from "./middleware.js";
 import { CreateUserSchema, CreateRoomSchema, SigninSchema } from "@repo/common/types";
