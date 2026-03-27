@@ -1,137 +1,230 @@
-import express from "express";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
-import { JWT_SECRET } from '@repo/backend-common';
-import { middleware } from "./middleware.js";
-import { CreateUserSchema, CreateRoomSchema, SigninSchema } from "@repo/common/types";
-import { prisma } from "@repo/db";
-const app = express();
-app.use(express.json());
-app.post("/signup", async (req, res) => {
-    const parsedData = CreateUserSchema.safeParse(req.body);
-    if (!parsedData.success) {
-        return res.json({
-            message: "incorrect inputs"
-        });
-    }
-    try {
-        // Hash the password before storing
-        const hashedPassword = await bcrypt.hash(parsedData.data.password, 10);
-        const user = await prisma.user.create({
-            data: {
-                email: parsedData.data.username,
-                password: hashedPassword,
-                name: parsedData.data.name
-            }
-        });
-        res.json({
-            message: "User created successfully",
-            userId: user.id
-        });
-    }
-    catch (e) {
-        console.error("Signup error:", e);
-        // Check if it's a unique constraint violation (duplicate email)
-        if (e.code === 'P2002') {
-            return res.status(411).json({
-                message: "User already exists with this username"
-            });
-        }
-        // Other database or connection errors
-        res.status(500).json({
-            message: "Error creating user",
-            error: e.message
-        });
-    }
-});
-app.post("/signin", async (req, res) => {
-    const parsedData = SigninSchema.safeParse(req.body);
-    if (!parsedData.success) {
-        return res.json({
-            message: "incorrect inputs"
-        });
-    }
-    // Find user by email only
-    const user = await prisma.user.findFirst({
-        where: {
-            email: parsedData.data.username
-        }
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
-    if (!user) {
-        return res.status(411).json({
-            message: "User not found"
-        });
-    }
-    // Compare the provided password with the hashed password
-    const isPasswordValid = await bcrypt.compare(parsedData.data.password, user.password);
-    if (!isPasswordValid) {
-        return res.status(411).json({
-            message: "Invalid password"
-        });
-    }
-    const token = jwt.sign({
-        userId: user.id
-    }, JWT_SECRET);
-    res.json({
-        token
-    });
-});
-app.post("/room", middleware, async (req, res) => {
-    const parsedData = CreateRoomSchema.safeParse(req.body);
-    if (!parsedData.success) {
-        return res.json({
-            message: "incorrect inputs"
-        });
-    }
-    const userId = req.userId;
-    if (!userId) {
-        return res.status(403).json({
-            message: "Unauthorized"
-        });
-    }
-    try {
-        const room = await prisma.room.create({
-            data: {
-                slug: parsedData.data.name,
-                adminId: userId
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
             }
-        });
-        res.json({
-            roomId: room.id
-        });
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
-    catch (e) {
-        console.error("Room creation error:", e);
-        res.status(500).json({
-            message: "Error creating room",
-            error: e.message
-        });
-    }
-    app.get("/chats/:roomId", async (req, res) => {
-        const roomId = req.params.roomId;
-        const messages = await prisma.chat.findMany({
-            where: {
-                roomId: Number(roomId)
-            },
-            take: 50,
-            orderBy: {
-                id: "desc"
-            }
-        });
-        res.json({
-            messages
-        });
-    });
-});
-app.get("/room/:slug", async (req, res) => {
-    const slug = req.params.slug;
-    const room = await prisma.room.findFirst({
-        where: {
-            slug: slug
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var express_1 = require("express");
+var jsonwebtoken_1 = require("jsonwebtoken");
+var bcrypt = require("bcrypt");
+var backend_common_1 = require("@repo/backend-common");
+var middleware_js_1 = require("./middleware.js");
+var types_1 = require("@repo/common/types");
+var db_1 = require("@repo/db");
+var cors_1 = require("cors");
+var app = (0, express_1.default)();
+app.use(express_1.default.json());
+app.use((0, cors_1.default)());
+app.post("/signup", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var parsedData, hashedPassword, user, e_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                parsedData = types_1.CreateUserSchema.safeParse(req.body);
+                if (!parsedData.success) {
+                    return [2 /*return*/, res.json({
+                            message: "incorrect inputs"
+                        })];
+                }
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, bcrypt.hash(parsedData.data.password, 10)];
+            case 2:
+                hashedPassword = _a.sent();
+                return [4 /*yield*/, db_1.prisma.user.create({
+                        data: {
+                            email: parsedData.data.username,
+                            password: hashedPassword,
+                            name: parsedData.data.name
+                        }
+                    })];
+            case 3:
+                user = _a.sent();
+                res.json({
+                    message: "User created successfully",
+                    userId: user.id
+                });
+                return [3 /*break*/, 5];
+            case 4:
+                e_1 = _a.sent();
+                console.error("Signup error:", e_1);
+                // Check if it's a unique constraint violation (duplicate email)
+                if (e_1.code === 'P2002') {
+                    return [2 /*return*/, res.status(411).json({
+                            message: "User already exists with this username"
+                        })];
+                }
+                // Other database or connection errors
+                res.status(500).json({
+                    message: "Error creating user",
+                    error: e_1.message
+                });
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
         }
     });
-    res.json({
-        room
+}); });
+app.post("/signin", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var parsedData, user, isPasswordValid, token;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                parsedData = types_1.SigninSchema.safeParse(req.body);
+                if (!parsedData.success) {
+                    return [2 /*return*/, res.json({
+                            message: "incorrect inputs"
+                        })];
+                }
+                return [4 /*yield*/, db_1.prisma.user.findFirst({
+                        where: {
+                            email: parsedData.data.username
+                        }
+                    })];
+            case 1:
+                user = _a.sent();
+                if (!user) {
+                    return [2 /*return*/, res.status(411).json({
+                            message: "User not found"
+                        })];
+                }
+                return [4 /*yield*/, bcrypt.compare(parsedData.data.password, user.password)];
+            case 2:
+                isPasswordValid = _a.sent();
+                if (!isPasswordValid) {
+                    return [2 /*return*/, res.status(411).json({
+                            message: "Invalid password"
+                        })];
+                }
+                token = jsonwebtoken_1.default.sign({
+                    userId: user.id
+                }, backend_common_1.JWT_SECRET);
+                res.json({
+                    token: token
+                });
+                return [2 /*return*/];
+        }
     });
-});
+}); });
+app.post("/room", middleware_js_1.middleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var parsedData, userId, room, e_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                parsedData = types_1.CreateRoomSchema.safeParse(req.body);
+                if (!parsedData.success) {
+                    return [2 /*return*/, res.json({
+                            message: "incorrect inputs"
+                        })];
+                }
+                userId = req.userId;
+                if (!userId) {
+                    return [2 /*return*/, res.status(403).json({
+                            message: "Unauthorized"
+                        })];
+                }
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, db_1.prisma.room.create({
+                        data: {
+                            slug: parsedData.data.name,
+                            adminId: userId
+                        }
+                    })];
+            case 2:
+                room = _a.sent();
+                res.json({
+                    roomId: room.id
+                });
+                return [3 /*break*/, 4];
+            case 3:
+                e_2 = _a.sent();
+                console.error("Room creation error:", e_2);
+                res.status(500).json({
+                    message: "Error creating room",
+                    error: e_2.message
+                });
+                return [3 /*break*/, 4];
+            case 4:
+                app.get("/chats/:roomId", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+                    var roomId, messages;
+                    return __generator(this, function (_a) {
+                        switch (_a.label) {
+                            case 0:
+                                roomId = req.params.roomId;
+                                return [4 /*yield*/, db_1.prisma.chat.findMany({
+                                        where: {
+                                            roomId: Number(roomId)
+                                        },
+                                        take: 50,
+                                        orderBy: {
+                                            id: "desc"
+                                        }
+                                    })];
+                            case 1:
+                                messages = _a.sent();
+                                res.json({
+                                    messages: messages
+                                });
+                                return [2 /*return*/];
+                        }
+                    });
+                }); });
+                return [2 /*return*/];
+        }
+    });
+}); });
+app.get("/room/:slug", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var slug, room;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                slug = req.params.slug;
+                return [4 /*yield*/, db_1.prisma.room.findFirst({
+                        where: {
+                            slug: slug
+                        }
+                    })];
+            case 1:
+                room = _a.sent();
+                res.json({
+                    room: room
+                });
+                return [2 /*return*/];
+        }
+    });
+}); });
 app.listen(3001);
