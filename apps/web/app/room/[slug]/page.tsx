@@ -1,26 +1,25 @@
+// import axios from "axios";
+// import { BACKEND_URL } from "../../config";
 
-import axios from "axios";
-import { HTTP_BACKEND } from "../../../config";
-import { ChatRoomClient } from "../../../components/ChatRoomClient";
+// async function getRoomId(slug: string) {
+//     const response = await axios.get(`${BACKEND_URL}/room/${slug}`)
+//     console.log(response.data);
+//     return response.data.room.id;
+// }
 
-async function getRoomId(slug: string) {
-    const response = await axios.get(`${HTTP_BACKEND}/room/${slug}`);
-    return response.data.room.id;
-}
-
-async function getChats(roomId: string) {
-    const response = await axios.get(`${HTTP_BACKEND}/chats/${roomId}`);
-    return response.data.messages;
-}
-
-export default async function ChatRoom({
+export default async function({
     params
 }: {
-    params: Promise<{
+    params: {
         slug: string
-    }>
+    }
 }) {
-    const slug = (await params).slug;
-    const messages = await getChats(slug);
-    return <ChatRoomClient id={slug} messages={messages} />
+    // const slug = (await params).slug;
+    // const roomId = await getRoomId(slug);
+    
+    // return <ChatRoom id={roomId}></ChatRoom>
+    return <div>
+
+    </div>
+
 }
