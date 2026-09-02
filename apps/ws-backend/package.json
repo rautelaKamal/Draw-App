@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc -b",
     "start": "node ./dist/index.js",
-    "dev": "npm run build && npm run start"
+    "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.7",
@@ -16,7 +16,8 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/ws": "^8.5.13",
-    "@repo/backend-common": "workspace:*"
+    "@repo/backend-common": "workspace:*",
+    "tsx": "^4.19.2"
   },
   "keywords": [],
   "author": "",

@@ -3,5 +3,6 @@
     {
       "mode": "auto"
     }
-  ]
+  ],
+  "workbench.panel.defaultLocation": "bottom"
 }
