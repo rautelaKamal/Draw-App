@@ -1,28 +1,51 @@
 "use client";
 
-import { WS_URL } from "@/config";
-import { initDraw } from "@/draw";
-import { useEffect, useRef, useState } from "react";
+import { TOKEN_KEY, WS_URL } from "@/config";
+import { useEffect, useState } from "react";
 import { Canvas } from "./Canvas";
 
 export function RoomCanvas({roomId}: {roomId: string}) {
     const [socket, setSocket] = useState<WebSocket | null>(null);
+    const [error, setError] = useState("");
 
     useEffect(() => {
-        const ws = new WebSocket(`${WS_URL}?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3Njg0NDMwYy04YzNiLTRlZmQtOGFmNS00YzQwMzdmNjJkYzMiLCJpYXQiOjE3MzcyOTg2NjV9.xacFop0s231DoUVeLZormeIbBmIRaXftTVVI6weIqFo`)
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (!token) {
+            setError("You need to sign in before joining a room.");
+            return;
+        }
+
+        const ws = new WebSocket(`${WS_URL}?token=${token}`);
+        let opened = false;
 
         ws.onopen = () => {
+            opened = true;
             setSocket(ws);
-            const data = JSON.stringify({
+            ws.send(JSON.stringify({
                 type: "join_room",
                 roomId
-            });
-            console.log(data);
-            ws.send(data)
+            }));
         }
-        
-    }, [])
-   
+
+        // ws-backend closes the socket without a message when the token is
+        // rejected, so a close before open means the token is bad or expired.
+        ws.onclose = () => {
+            if (!opened) {
+                setError("Could not connect. Try signing in again.");
+            }
+        }
+
+        return () => {
+            ws.close();
+        }
+    }, [roomId])
+
+    if (error) {
+        return <div>
+            {error}
+        </div>
+    }
+
     if (!socket) {
         return <div>
             Connecting to server....
