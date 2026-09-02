@@ -17,9 +17,14 @@ export function RoomCanvas({roomId}: {roomId: string}) {
 
         const ws = new WebSocket(`${WS_URL}?token=${token}`);
         let opened = false;
+        // Set by cleanup, so the close we cause ourselves is not read as a
+        // failure. Strict mode remounts this effect, which would otherwise
+        // leave a stale error on screen while the second socket connects fine.
+        let cancelled = false;
 
         ws.onopen = () => {
             opened = true;
+            setError("");
             setSocket(ws);
             ws.send(JSON.stringify({
                 type: "join_room",
@@ -30,12 +35,13 @@ export function RoomCanvas({roomId}: {roomId: string}) {
         // ws-backend closes the socket without a message when the token is
         // rejected, so a close before open means the token is bad or expired.
         ws.onclose = () => {
-            if (!opened) {
+            if (!opened && !cancelled) {
                 setError("Could not connect. Try signing in again.");
             }
         }
 
         return () => {
+            cancelled = true;
             ws.close();
         }
     }, [roomId])

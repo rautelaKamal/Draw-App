@@ -32,7 +32,7 @@ export function AuthPage({isSignin}: {
                     return;
                 }
                 localStorage.setItem(TOKEN_KEY, res.data.token);
-                router.push("/");
+                router.push("/rooms");
             } else {
                 const res = await axios.post(`${HTTP_BACKEND}/signup`, {
                     username,
