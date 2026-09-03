@@ -140,4 +140,5 @@ app.get("/room/:slug", async (req, res) => {
     })
 })
 
-app.listen(3001);
+// Hosts assign the port; ignoring it means traffic never reaches the process.
+app.listen(Number(process.env.PORT) || 3001);

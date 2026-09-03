@@ -54,7 +54,7 @@ export default function RoomsPage() {
                 return;
             }
             router.push(`/canvas/${res.data.room.id}`);
-        } catch (e) {
+        } catch {
             setError("Could not join the room");
         } finally {
             setLoading(false);
