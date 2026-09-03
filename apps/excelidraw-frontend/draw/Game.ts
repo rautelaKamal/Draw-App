@@ -103,9 +103,9 @@ export class Game {
         }
     }
 
-    // Shapes are stroked outlines, so "touching" one means being near its
-    // edge rather than inside its bounds.
-    private static HIT_TOLERANCE = 8;
+    // Slack around a shape's edge, so a stroke a pixel wide is still easy to
+    // hit with a mouse.
+    private static HIT_TOLERANCE = 10;
 
     private distanceToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
         const dx = x2 - x1;
@@ -119,26 +119,27 @@ export class Game {
         return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
     }
 
-    private isNearShape(shape: Shape, px: number, py: number) {
+    private hitsShape(shape: Shape, px: number, py: number) {
         const tolerance = Game.HIT_TOLERANCE;
 
+        // Closed shapes count as hit anywhere inside them, not just on the
+        // outline. Nothing here is filled, but pointing at a shape and having
+        // nothing happen is not what anyone expects from an eraser.
         if (shape.type === "rect") {
             // width/height go negative when dragged up or left, so normalise
-            // before treating these as edges.
+            // before comparing against the bounds.
             const left = Math.min(shape.x, shape.x + shape.width);
             const right = Math.max(shape.x, shape.x + shape.width);
             const top = Math.min(shape.y, shape.y + shape.height);
             const bottom = Math.max(shape.y, shape.y + shape.height);
 
-            return this.distanceToSegment(px, py, left, top, right, top) <= tolerance
-                || this.distanceToSegment(px, py, right, top, right, bottom) <= tolerance
-                || this.distanceToSegment(px, py, right, bottom, left, bottom) <= tolerance
-                || this.distanceToSegment(px, py, left, bottom, left, top) <= tolerance;
+            return px >= left - tolerance && px <= right + tolerance
+                && py >= top - tolerance && py <= bottom + tolerance;
         }
 
         if (shape.type === "circle") {
             const distance = Math.hypot(px - shape.centerX, py - shape.centerY);
-            return Math.abs(distance - Math.abs(shape.radius)) <= tolerance;
+            return distance <= Math.abs(shape.radius) + tolerance;
         }
 
         for (let i = 1; i < shape.points.length; i++) {
@@ -159,7 +160,7 @@ export class Game {
         // Topmost first, so the eraser takes the shape you can actually see.
         for (let i = this.existingShapes.length - 1; i >= 0; i--) {
             const shape = this.existingShapes[i];
-            if (!shape || !this.isNearShape(shape, px, py)) {
+            if (!shape || !this.hitsShape(shape, px, py)) {
                 continue;
             }
 
