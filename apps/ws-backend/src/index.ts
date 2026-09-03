@@ -52,6 +52,15 @@ wss.on('connection', function connection(ws, request) {
     ws
   })
 
+  // Without this the array grows for the life of the process and every
+  // broadcast writes to sockets that are already gone.
+  ws.on('close', function close() {
+    const index = users.findIndex(x => x.ws === ws);
+    if (index !== -1) {
+      users.splice(index, 1);
+    }
+  });
+
   ws.on('message', async function message(data) {
     let parsedData;
     if (typeof data !== "string") {
@@ -70,7 +79,7 @@ wss.on('connection', function connection(ws, request) {
       if (!user) {
         return;
       }
-      user.rooms = user?.rooms.filter(x => x === parsedData.room);
+      user.rooms = user.rooms.filter(x => x !== parsedData.roomId);
     }
 
     console.log("message received")

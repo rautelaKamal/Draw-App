@@ -35,11 +35,36 @@ export function Canvas({
 
     }, [canvasRef]);
 
+    // Sizing the canvas in an effect rather than during render: window is not
+    // readable while rendering, and the attribute was captured once, so the
+    // surface stayed at whatever it measured on first paint (0 in a hidden or
+    // still-laying-out tab) and never followed a resize.
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) {
+            return;
+        }
+
+        const resize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Changing the surface size wipes it, so repaint what we hold.
+            game?.clearCanvas();
+        }
+
+        resize();
+        window.addEventListener("resize", resize);
+
+        return () => {
+            window.removeEventListener("resize", resize);
+        }
+    }, [game]);
+
     return <div style={{
         height: "100vh",
         overflow: "hidden"
     }}>
-        <canvas ref={canvasRef} width={window.innerWidth} height={window.innerHeight}></canvas>
+        <canvas ref={canvasRef}></canvas>
         <Topbar setSelectedTool={setSelectedTool} selectedTool={selectedTool} />
     </div>
 }
