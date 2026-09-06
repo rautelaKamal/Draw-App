@@ -4,6 +4,7 @@ import { JWT_SECRET } from '@repo/backend-common/config';
 import { middleware } from "./middleware";
 import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types";
 import { prismaClient } from "@repo/db/client";
+import { createWebSocketServer } from "ws-backend/server";
 import cors from "cors";
 
 const app = express();
@@ -146,4 +147,11 @@ app.get("/room/:slug", async (req, res) => {
 })
 
 // Hosts assign the port; ignoring it means traffic never reaches the process.
-app.listen(Number(process.env.PORT) || 3001);
+const server = app.listen(Number(process.env.PORT) || 3001);
+
+// Free hosting gives one port per service, so in production the socket server
+// rides on this HTTP server instead of opening its own. ws-backend still runs
+// standalone in development; this only changes where it is mounted.
+if (process.env.WS_EMBEDDED) {
+    createWebSocketServer({ server, path: "/ws" });
+}

@@ -1,10 +1,7 @@
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer, type ServerOptions } from 'ws';
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from '@repo/backend-common/config';
 import { prismaClient } from "@repo/db/client";
-
-// Hosts assign the port; ignoring it means traffic never reaches the process.
-const wss = new WebSocketServer({ port: Number(process.env.PORT) || 8080 });
 
 interface User {
   ws: WebSocket,
@@ -33,7 +30,13 @@ function checkUser(token: string): string | null {
   return null;
 }
 
-wss.on('connection', function connection(ws, request) {
+// Takes the ws options rather than opening its own port, so this can either
+// listen on a port of its own (standalone, below) or ride on an HTTP server
+// that already exists (http-backend, when both are deployed as one service).
+export function createWebSocketServer(options: ServerOptions) {
+  const wss = new WebSocketServer(options);
+
+  wss.on('connection', function connection(ws, request) {
   const url = request.url;
   if (!url) {
     return;
@@ -111,5 +114,15 @@ wss.on('connection', function connection(ws, request) {
 
   });
 
-});
+  });
+
+  return wss;
+}
+
+// Run on our own port when started directly. http-backend sets WS_EMBEDDED so
+// that importing this file mounts the server instead of opening a second one.
+if (!process.env.WS_EMBEDDED) {
+  // Hosts assign the port; ignoring it means traffic never reaches the process.
+  createWebSocketServer({ port: Number(process.env.PORT) || 8080 });
+}
 
