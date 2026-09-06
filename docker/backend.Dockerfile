@@ -31,7 +31,12 @@ COPY packages/ui/package.json packages/ui/
 RUN pnpm install --frozen-lockfile
 
 COPY packages/ packages/
-COPY apps/${APP}/ apps/${APP}/
+
+# Both backend sources, not just the entry point: http-backend imports
+# ws-backend to mount the socket server when WS_EMBEDDED is set, and a
+# workspace symlink is useless if the directory it points at is absent.
+COPY apps/http-backend/ apps/http-backend/
+COPY apps/ws-backend/ apps/ws-backend/
 
 # The Prisma client is generated code, so it has to be produced inside the
 # image rather than copied from the host.
