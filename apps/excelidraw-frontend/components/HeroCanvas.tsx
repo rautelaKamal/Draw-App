@@ -3,19 +3,29 @@
 import { useEffect, useRef } from "react";
 
 type Sketch =
-    | { kind: "rect"; x: number; y: number; w: number; h: number }
-    | { kind: "circle"; cx: number; cy: number; r: number }
-    | { kind: "path"; points: [number, number][] };
+    | { kind: "rect"; x: number; y: number; w: number; h: number; color?: string }
+    | { kind: "circle"; cx: number; cy: number; r: number; color?: string }
+    | { kind: "path"; points: [number, number][]; color?: string };
 
-// Laid out in a 1000x640 space and scaled to the canvas. These are the same
-// three primitives the app itself draws, in the same white-on-black it uses.
+const INK = "#1C1B1A";
+const MARKER = "#2F6BD8";
+
+// Laid out in a 1000x640 space and scaled to the canvas.
 const SKETCH: Sketch[] = [
-    { kind: "rect", x: 560, y: 92, w: 258, h: 156 },
-    { kind: "path", points: [[566, 300], [614, 286], [666, 312], [718, 282], [772, 306], [828, 288]] },
-    { kind: "circle", cx: 646, cy: 452, r: 82 },
-    { kind: "rect", x: 782, y: 398, w: 138, h: 120 },
-    { kind: "path", points: [[566, 560], [620, 532], [670, 564], [724, 530], [778, 562], [828, 536]] },
+    { kind: "rect", x: 566, y: 96, w: 252, h: 150, color: INK },
+    { kind: "path", points: [[572, 300], [620, 286], [672, 312], [724, 282], [778, 306], [832, 288]], color: MARKER },
+    { kind: "circle", cx: 650, cy: 452, r: 80, color: INK },
+    { kind: "rect", x: 786, y: 400, w: 134, h: 116, color: MARKER },
 ];
+
+// Stable pseudo-random so the wobble does not change on every resize.
+function wobbler(seed: number) {
+    let s = seed;
+    return () => {
+        s = (s * 1664525 + 1013904223) % 4294967296;
+        return (s / 4294967296 - 0.5) * 2;
+    };
+}
 
 export function HeroCanvas() {
     const ref = useRef<HTMLCanvasElement>(null);
@@ -33,33 +43,56 @@ export function HeroCanvas() {
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, rect.width, rect.height);
 
             const sx = rect.width / 1000;
             const sy = rect.height / 640;
+            const rand = wobbler(20260907);
 
-            ctx.clearRect(0, 0, rect.width, rect.height);
-            ctx.strokeStyle = "#ffffff";
-            ctx.lineWidth = 1.25;
-            ctx.lineJoin = "round";
-            ctx.lineCap = "round";
+            // Two passes with slightly different jitter, the way a marker
+            // never lands twice in quite the same place.
+            const stroke = (points: [number, number][], closed: boolean, color: string) => {
+                for (let pass = 0; pass < 2; pass++) {
+                    ctx.strokeStyle = color;
+                    ctx.globalAlpha = pass === 0 ? 0.9 : 0.45;
+                    ctx.lineWidth = 1.6;
+                    ctx.lineJoin = "round";
+                    ctx.lineCap = "round";
+                    ctx.beginPath();
+                    points.forEach(([x, y], i) => {
+                        const px = (x + rand() * 3.5) * sx;
+                        const py = (y + rand() * 3.5) * sy;
+                        if (i === 0) {
+                            ctx.moveTo(px, py);
+                        } else {
+                            ctx.lineTo(px, py);
+                        }
+                    });
+                    if (closed) {
+                        ctx.closePath();
+                    }
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            };
 
             for (const s of SKETCH) {
-                ctx.beginPath();
+                const color = s.color ?? INK;
                 if (s.kind === "rect") {
-                    ctx.rect(s.x * sx, s.y * sy, s.w * sx, s.h * sy);
+                    stroke([[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w, s.y + s.h], [s.x, s.y + s.h]], true, color);
                 } else if (s.kind === "circle") {
-                    ctx.arc(s.cx * sx, s.cy * sy, s.r * Math.min(sx, sy), 0, Math.PI * 2);
+                    // Few enough samples that the per-point jitter reads as a
+                    // wobbly hand rather than a lumpy polygon.
+                    const steps = 20;
+                    const points: [number, number][] = [];
+                    for (let i = 0; i <= steps; i++) {
+                        const a = (i / steps) * Math.PI * 2;
+                        points.push([s.cx + Math.cos(a) * s.r, s.cy + Math.sin(a) * s.r]);
+                    }
+                    stroke(points, false, color);
                 } else {
-                    const first = s.points[0];
-                    if (!first) {
-                        continue;
-                    }
-                    ctx.moveTo(first[0] * sx, first[1] * sy);
-                    for (const point of s.points.slice(1)) {
-                        ctx.lineTo(point[0] * sx, point[1] * sy);
-                    }
+                    stroke(s.points, false, color);
                 }
-                ctx.stroke();
             }
         };
 
