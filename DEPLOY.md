@@ -1,131 +1,165 @@
-# Deploying to Railway
+# Deploying (free)
 
-Four services: Postgres, `http-backend`, `ws-backend`, `frontend`.
+Three platforms, each free with no expiry:
 
-**Deploy in the order below.** The frontend compiles the backend URLs into its
-JavaScript bundle at *build* time, so the backends need public domains before
-the frontend is built. Building it first bakes in `localhost` and the deployed
-site will fail to reach the API.
+| Piece | Platform | Notes |
+|---|---|---|
+| Postgres | **Neon** | Free, persistent |
+| Backend (API + WebSocket) | **Koyeb** | One free instance; sleeps after 1h idle |
+| Frontend | **Vercel** | Free, never sleeps |
+
+Both backends run as **one** Koyeb service: a free instance exposes a single
+port, so `http-backend` mounts the socket server on its own HTTP server at
+`/ws`. That is what `WS_EMBEDDED=1` below switches on. Locally nothing
+changes — `docker compose up` still runs them as two separate services.
+
+**Deploy in this order.** The frontend compiles the backend URL into its
+JavaScript bundle at *build* time, so the backend needs a public domain first.
+Building the frontend early bakes in `localhost` and the live site cannot reach
+the API.
 
 ---
 
-## 1. Create the project and database
+## 1. Database — Neon
 
-1. On [railway.app](https://railway.app), create a project and connect this
-   GitHub repo.
-2. **Add a Postgres database** (New -> Database -> Postgres). Railway creates a
-   `DATABASE_URL` you reference from the other services.
+1. Sign up at [neon.tech](https://neon.tech), create a project.
+2. Copy the connection string. It looks like:
+   `postgresql://user:pass@ep-xxx.aws.neon.tech/neondb?sslmode=require`
+
+Keep `?sslmode=require` — Neon rejects unencrypted connections.
 
 ## 2. Generate a JWT secret
-
-The backends refuse to boot in production without one — that is deliberate, so
-a missing secret fails loudly instead of falling back to a value published in
-this repo. Generate a real one:
 
 ```bash
 openssl rand -base64 32
 ```
 
-Keep it. Both backends must use the **same** value, or tokens signed by the
-HTTP API will not verify on the socket server.
+The backend refuses to boot in production without one. That is deliberate: a
+missing secret fails loudly instead of silently falling back to a value that is
+public in this repo.
 
-## 3. Deploy `http-backend`
+## 3. Backend — Koyeb
 
-New -> GitHub Repo -> this repo. Then in the service settings:
+Create a Web Service from this GitHub repo.
 
-- **Config as code path:** `railway/http-backend.json`
-- **Variables:**
+- **Builder:** Dockerfile
+- **Dockerfile path:** `docker/backend.Dockerfile`
+- **Build argument:** `APP` = `http-backend`
+- **Exposed port:** `8000` (Koyeb's default; the app reads `PORT`)
+- **Environment variables:**
 
   | Name | Value |
   |---|---|
   | `APP` | `http-backend` |
-  | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+  | `WS_EMBEDDED` | `1` |
+  | `DATABASE_URL` | the Neon string from step 1 |
   | `JWT_SECRET` | the value from step 2 |
   | `NODE_ENV` | `production` |
 
-- **Networking -> Generate Domain.** Note the URL, e.g.
-  `https://http-backend-production.up.railway.app`.
+`APP` is needed in **both** places — as a build argument (it selects which
+backend the shared Dockerfile builds) and as an environment variable.
 
-`APP` is consumed as a Docker build argument — one Dockerfile builds either
-backend, and this selects which. The start command runs
-`prisma migrate deploy` before booting, so the schema is applied on every
-deploy.
+Deploy, then note the public domain, e.g.
+`https://draw-app-yourname.koyeb.app`.
 
-## 4. Deploy `ws-backend`
+### Apply the database schema
 
-Another service from the same repo:
+The container has the Prisma CLI. From Koyeb's console/shell for the service:
 
-- **Config as code path:** `railway/ws-backend.json`
-- **Variables:**
+```bash
+cd /app && pnpm --filter @repo/db exec prisma migrate deploy
+```
+
+If the service has no shell, run it from your machine against Neon instead:
+
+```bash
+cd packages/db && DATABASE_URL="<your neon string>" npx prisma migrate deploy
+```
+
+### Check it
+
+```bash
+curl https://<your koyeb domain>/room/anything
+```
+
+`{"room":null}` means the API and the database are both working. An error
+mentioning a relation or table means migrations have not run.
+
+## 4. Frontend — Vercel
+
+Import the repo at [vercel.com](https://vercel.com).
+
+- **Root Directory:** `apps/excelidraw-frontend`
+- Enable **Include source files outside of the Root Directory** — the app
+  depends on `@repo/ui` and `@repo/common`, which live above it.
+- **Environment variables:**
 
   | Name | Value |
   |---|---|
-  | `APP` | `ws-backend` |
-  | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-  | `JWT_SECRET` | **the same value as step 3** |
-  | `NODE_ENV` | `production` |
+  | `NEXT_PUBLIC_HTTP_BACKEND` | `https://<your koyeb domain>` |
+  | `NEXT_PUBLIC_WS_URL` | `wss://<your koyeb domain>/ws` |
 
-- **Generate Domain.** Note the URL.
+Two details in that second value that both fail silently if wrong:
 
-Only `http-backend` runs migrations. Both services share one schema, and two
-processes migrating the same database concurrently can deadlock.
+- **`wss://`, not `ws://`.** The page is served over HTTPS and browsers block
+  an insecure socket opened from a secure page as mixed content — with nothing
+  in the network tab to explain it.
+- **`/ws` on the end, and no port number.** That is the path the socket server
+  is mounted at. `wss://host/ws`, never `wss://host:8080/ws`.
 
-## 5. Deploy `frontend`
+Deploy. The Vercel URL is your live link — the only one that goes on a CV.
 
-Last, now that both backend URLs exist:
+## 5. Close the CORS hole
 
-- **Config as code path:** `railway/frontend.json`
-- **Variables:**
-
-  | Name | Value |
-  |---|---|
-  | `NEXT_PUBLIC_HTTP_BACKEND` | `https://<your http-backend domain>` |
-  | `NEXT_PUBLIC_WS_URL` | `wss://<your ws-backend domain>` |
-
-  **`wss://`, not `ws://`.** The page is served over HTTPS, and browsers block
-  an insecure WebSocket opened from a secure page as mixed content — silently,
-  with nothing in the network tab. Railway terminates TLS for you, so the
-  scheme is the only change. No port number: `wss://host`, not `wss://host:8080`.
-
-- **Generate Domain.** This is your live URL.
-
-## 6. Close the CORS hole
-
-Back in **`http-backend`**, add one more variable:
+Back on **Koyeb**, add one more environment variable and redeploy:
 
 | Name | Value |
 |---|---|
-| `CORS_ORIGIN` | `https://<your frontend domain>` |
+| `CORS_ORIGIN` | `https://<your vercel domain>` |
 
-Without it the API accepts requests from any origin, meaning any website could
-call it with a logged-in user's token. Redeploy after setting it.
+Without it the API accepts requests from any origin, so any website could call
+it with a logged-in user's token.
 
 ---
 
 ## Verifying
 
-1. Open the frontend URL, sign up, sign in.
-2. Create a room — confirms the API, the database, and migrations.
-3. Draw a shape, then reload — confirms the socket and persistence.
-4. Open the same room in a second browser and draw. Both should update live.
+1. Open the Vercel URL, sign up, sign in.
+2. Create a room — exercises the API, the database, and migrations.
+3. Draw a shape, reload — exercises the socket and persistence.
+4. Open the same room in a second browser and draw in one. Both should update.
 
-If step 4 fails while 1-3 pass, the WebSocket is the problem: check
-`NEXT_PUBLIC_WS_URL` uses `wss://` and carries no port.
+If 1-3 pass but 4 fails, it is the socket: check `NEXT_PUBLIC_WS_URL` is
+`wss://`, ends in `/ws`, and has no port.
 
-## Redeploying after a URL change
+## Things that will confuse you later
 
-`NEXT_PUBLIC_*` values are compiled into the bundle, so changing them requires
-a **rebuild**, not a restart. After editing either, trigger a redeploy of the
-frontend or the old URL stays baked in.
+**Changing a `NEXT_PUBLIC_*` value needs a rebuild, not a restart.** Those
+values are compiled into the bundle. Redeploy the frontend after editing one or
+the old value stays baked in.
+
+**The first request after an idle hour takes ~30 seconds.** Koyeb's free
+instance scales to zero. Vercel does not, so the page loads instantly and only
+signing in feels slow. Before showing this to anyone, open it a couple of
+minutes early to wake the backend.
 
 ## Known gaps in production
 
-Real limitations, worth knowing before showing this to anyone:
+Real limitations, worth knowing before sharing the link:
 
 - **Passwords are stored in plaintext.** Do not reuse a real password.
 - **Tokens never expire** and cannot be revoked.
-- **The socket server holds connection state in memory**, so it cannot run more
-  than one replica — a second instance would not see the first one's clients.
-  Scaling horizontally needs Redis pub/sub for the fan-out.
+- **One instance only.** Connection state lives in memory, so a second replica
+  would not see the first one's clients. Scaling out needs Redis pub/sub.
 - **Any signed-in user can join any room** by guessing its integer id, and
-  `GET /chats/:roomId` needs no token at all.
+  `GET /chats/:roomId` requires no token at all.
+- **API and socket share a process**, so a crash takes down both. Splitting
+  them again is a config change — unset `WS_EMBEDDED` and deploy `ws-backend`
+  separately.
+
+## Alternative: Railway (paid)
+
+`railway/*.json` holds config for deploying the three services separately on
+Railway — always-on, no cold start, one dashboard, around $5/month once the
+trial credit runs out. Worth it if the cold start ever becomes a problem; the
+free path above is otherwise equivalent.
