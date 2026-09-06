@@ -6,7 +6,9 @@
 # runtime has to read TS directly -- which is what tsx does.
 FROM node:20-alpine
 
-ARG APP
+# Defaults to http-backend so the build still works on hosts that do not pass
+# build arguments; ws-backend builds pass APP explicitly.
+ARG APP=http-backend
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
