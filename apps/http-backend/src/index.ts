@@ -8,7 +8,12 @@ import cors from "cors";
 
 const app = express();
 app.use(express.json());
-app.use(cors())
+
+// Once the frontend is on its own domain, an open CORS policy lets any site
+// call this API with a user's credentials. Locked to the known origin when
+// one is configured; open in local dev, where there isn't one.
+const allowedOrigin = process.env.CORS_ORIGIN;
+app.use(cors(allowedOrigin ? { origin: allowedOrigin } : {}))
 
 app.post("/signup", async (req, res) => {
 
