@@ -3,7 +3,7 @@
 #
 # Nothing is compiled here. The workspace packages (@repo/db, @repo/common,
 # @repo/backend-common) export raw TypeScript rather than build output, so the
-# runtime has to read TS directly -- which is what tsx does.
+# runtime has to read TS directly, which is what tsx does.
 FROM node:20-alpine
 
 # Defaults to http-backend so the build still works on hosts that do not pass

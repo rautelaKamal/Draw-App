@@ -1,5 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { JWT_SECRET } from '@repo/backend-common/config';
 import { middleware } from "./middleware";
 import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types";
@@ -30,8 +31,9 @@ app.post("/signup", async (req, res) => {
         const user = await prismaClient.user.create({
             data: {
                 email: parsedData.data?.username,
-                // TODO: Hash the pw
-                password: parsedData.data.password,
+                // Stored as a bcrypt hash, never as the password itself, so a
+                // dump of this table does not hand over anyone's login.
+                password: await bcrypt.hash(parsedData.data.password, 10),
                 name: parsedData.data.name
             }
         })
@@ -54,15 +56,18 @@ app.post("/signin", async (req, res) => {
         return;
     }
 
-    // TODO: Compare the hashed pws here
+    // The password cannot be part of the query any more: a hash only matches
+    // through bcrypt.compare, which re-hashes the attempt with the salt stored
+    // in the hash itself.
     const user = await prismaClient.user.findFirst({
         where: {
-            email: parsedData.data.username,
-            password: parsedData.data.password
+            email: parsedData.data.username
         }
     })
 
-    if (!user) {
+    // Same response whether the email is unknown or the password is wrong, so
+    // the endpoint cannot be used to find out which accounts exist.
+    if (!user || !(await bcrypt.compare(parsedData.data.password, user.password))) {
         res.status(403).json({
             message: "Not authorized"
         })
