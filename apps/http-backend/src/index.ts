@@ -67,7 +67,7 @@ app.post("/signin", async (req, res) => {
     // Same response whether the email is unknown or the password is wrong, so
     // the endpoint cannot be used to find out which accounts exist.
     if (!user || !(await bcrypt.compare(parsedData.data.password, user.password))) {
-        res.status(403).json({
+        res.status(401).json({
             message: "Not authorized"
         })
         return;

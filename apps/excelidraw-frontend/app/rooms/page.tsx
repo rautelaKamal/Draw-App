@@ -31,14 +31,20 @@ export default function RoomsPage() {
                 // middleware reads the raw header, no "Bearer " prefix
                 headers: { authorization: localStorage.getItem(TOKEN_KEY) ?? "" }
             });
-            if (!res.data.roomId) {
-                setError(res.data.message ?? "Could not create the room");
-                return;
-            }
             router.push(`/canvas/${res.data.roomId}`);
         } catch (e) {
-            const message = axios.isAxiosError(e) ? e.response?.data?.message : null;
-            setError(message ?? "Could not create the room");
+            // The server answers 4xx now, so the specific cases live here
+            // rather than in a branch after a 200 that can never run.
+            const status = axios.isAxiosError(e) ? e.response?.status : null;
+            if (status === 409) {
+                setError(`A room called "${createName}" already exists`);
+            } else if (status === 400) {
+                setError("Room names are 3 to 20 characters");
+            } else if (status === 401 || status === 403) {
+                setError("Your session expired. Sign in again.");
+            } else {
+                setError("Could not create the room");
+            }
         } finally {
             setLoading(false);
         }
@@ -49,13 +55,12 @@ export default function RoomsPage() {
         setLoading(true);
         try {
             const res = await axios.get(`${HTTP_BACKEND}/room/${joinName}`);
-            if (!res.data.room) {
-                setError(`No room called "${joinName}"`);
-                return;
-            }
             router.push(`/canvas/${res.data.room.id}`);
-        } catch {
-            setError("Could not join the room");
+        } catch (e) {
+            const status = axios.isAxiosError(e) ? e.response?.status : null;
+            setError(status === 404
+                ? `No room called "${joinName}"`
+                : "Could not join the room");
         } finally {
             setLoading(false);
         }

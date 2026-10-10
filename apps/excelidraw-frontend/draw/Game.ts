@@ -8,6 +8,10 @@ type Point = {
 
 // id is client-generated and optional: shapes replayed from the database
 // predate it, and only echoes need to be matched against what we already hold.
+// Matches the points cap in the server's ShapeSchema. Keeping one stroke under
+// it keeps the serialised message well under the socket's size limit.
+const MAX_PENCIL_POINTS = 1000;
+
 type Shape = {
     id?: string;
     type: "rect";
@@ -193,6 +197,27 @@ export class Game {
         }
     }
 
+    // Stores the stroke locally and sends it, the same way mouseUp does for the
+    // other tools. Split out so a long stroke can be flushed mid-drag.
+    commitPencilStroke(points: Point[]) {
+        if (points.length < 2) {
+            return;
+        }
+
+        const shape: Shape = {
+            id: crypto.randomUUID(),
+            type: "pencil",
+            points
+        };
+
+        this.existingShapes.push(shape);
+        this.socket.send(JSON.stringify({
+            type: "chat",
+            message: JSON.stringify({ shape }),
+            roomId: this.roomId
+        }));
+    }
+
     drawPencil(points: Point[]) {
         const first = points[0];
         if (!first) {
@@ -273,11 +298,8 @@ export class Game {
                 return;
             }
 
-            shape = {
-                id: crypto.randomUUID(),
-                type: "pencil",
-                points
-            }
+            this.commitPencilStroke(points);
+            return;
         }
 
         if (!shape) {
@@ -302,6 +324,17 @@ export class Game {
 
         if (this.selectedTool === "pencil") {
             this.pencilPoints.push({ x: e.clientX, y: e.clientY });
+
+            // A long stroke would grow past the server's message size cap and
+            // be dropped without telling anyone. Instead it is sent in
+            // segments: finish this one, then carry on from its last point so
+            // the line stays continuous on screen.
+            if (this.pencilPoints.length >= MAX_PENCIL_POINTS) {
+                const last = this.pencilPoints[this.pencilPoints.length - 1]!;
+                this.commitPencilStroke(this.pencilPoints);
+                this.pencilPoints = [last];
+            }
+
             this.clearCanvas();
             this.drawPencil(this.pencilPoints);
             return;

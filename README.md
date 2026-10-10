@@ -85,9 +85,14 @@ capped at the most recent 1000 shapes; the real fix is periodic snapshotting.
 - JWTs expire after seven days but cannot be revoked before that. Logging
   someone out immediately needs short-lived access tokens plus a refresh token,
   or a revocation list.
-- Any signed-in user can join any room by its name. That is the same
-  "anyone with the link" model Excalidraw uses, and it is deliberate, but there
-  is no per-room membership table to restrict it further.
+- **There is no real authorization, only authentication.** Room ids are
+  sequential integers, signing up is free, and `join_room` accepts any id, so
+  any signed-up user can read any room by counting upward. This is not the
+  "anyone with the link" model: an Excalidraw link carries a long random secret
+  that cannot be guessed, while this one carries the number 5. The two fixes
+  are an unguessable random slug in the URL, which keeps sharing as simple as
+  passing a link, or a `RoomMember` table checked on join and on `/chats`,
+  which is real access control but needs invite and removal flows.
 - `ws-backend` keeps connections in a module-level array, so it only runs as a
   single instance. Multiple instances need Redis pub/sub to fan out across
   processes.

@@ -32,12 +32,19 @@ export function RoomCanvas({roomId}: {roomId: string}) {
             }));
         }
 
-        // ws-backend closes the socket without a message when the token is
-        // rejected, so a close before open means the token is bad or expired.
+        // Two different failures arrive as the same event. A close before the
+        // socket ever opened means ws-backend rejected the token. A close after
+        // it opened means the connection dropped mid-session, which previously
+        // showed nothing at all: you carried on drawing into a dead socket and
+        // nobody saw any of it.
         ws.onclose = () => {
-            if (!opened && !cancelled) {
-                setError("Could not connect. Try signing in again.");
+            if (cancelled) {
+                return;
             }
+            setSocket(null);
+            setError(opened
+                ? "Connection lost. Reload the page to keep drawing."
+                : "Could not connect. Try signing in again.");
         }
 
         return () => {

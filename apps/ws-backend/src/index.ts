@@ -1,7 +1,7 @@
 import { WebSocket, WebSocketServer, type ServerOptions } from 'ws';
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from '@repo/backend-common/config';
-import { WsMessageSchema } from "@repo/common/types";
+import { ChatMessageSchema, WsMessageSchema } from "@repo/common/types";
 import { prismaClient } from "@repo/db/client";
 
 interface User {
@@ -103,6 +103,19 @@ export function createWebSocketServer(options: ServerOptions) {
 
       if (parsedData.type === "chat") {
         const { roomId, message } = parsedData;
+
+        // The payload is a JSON string, so the outer schema can only say it is
+        // a string of a sane length. Parsing it here is what stops a shape that
+        // crashes every client's redraw from being stored and replayed forever.
+        let body: unknown;
+        try {
+          body = JSON.parse(message);
+        } catch {
+          return;
+        }
+        if (!ChatMessageSchema.safeParse(body).success) {
+          return;
+        }
 
         // The token proves who you are; it does not say where you are allowed
         // to write. Without this check any signed-in client could write into

@@ -1,0 +1,36 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "portfolio",
+      "runtimeExecutable": "/Users/kamalrautela/.nvm/versions/node/v22.21.1/bin/node",
+      "runtimeArgs": [
+        "/Users/kamalrautela/Desktop/portfolio/node_modules/astro/bin/astro.mjs",
+        "dev",
+        "--root",
+        "/Users/kamalrautela/Desktop/portfolio",
+        "--port",
+        "4321"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "portfolio-magic",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/kamalrautela/Desktop/portfolio-magic && export PATH=/Users/kamalrautela/.nvm/versions/node/v22.21.1/bin:$PATH && exec npm run dev -- --port 3005"
+      ],
+      "port": 3005
+    },
+    {
+      "name": "sneakdrop",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/kamalrautela/Desktop/sneakdrop-assignment && export PATH=/Users/kamalrautela/.nvm/versions/node/v20.18.0/bin:$PATH && exec npm run dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

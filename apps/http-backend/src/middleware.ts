@@ -19,8 +19,11 @@ export function middleware(req: Request, res: Response, next: NextFunction) {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
 
+        // 401, not 403: 401 means the request carried no usable identity, so
+        // sign in and retry. 403 would mean we know who you are and you are
+        // not allowed, which is a different thing.
         if (typeof decoded === "string" || !decoded.userId) {
-            res.status(403).json({
+            res.status(401).json({
                 message: "Unauthorized"
             })
             return;
@@ -29,7 +32,7 @@ export function middleware(req: Request, res: Response, next: NextFunction) {
         req.userId = decoded.userId;
         next();
     } catch (e) {
-        res.status(403).json({
+        res.status(401).json({
             message: "Unauthorized"
         })
     }
