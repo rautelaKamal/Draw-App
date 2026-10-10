@@ -1,4 +1,4 @@
-import { HTTP_BACKEND } from "@/config";
+import { HTTP_BACKEND, TOKEN_KEY } from "@/config";
 import axios from "axios";
 
 type ChatRow = {
@@ -9,7 +9,12 @@ type ChatRow = {
 // The room is an append-only log, so replaying it means collecting the shapes
 // and the erase tombstones, then dropping every shape a tombstone names.
 export async function getExistingShapes(roomId: string) {
-    const res = await axios.get(`${HTTP_BACKEND}/chats/${roomId}`);
+    // /chats is behind auth now, so the same token the socket uses has to ride
+    // along on the replay request too.
+    const token = typeof window === "undefined" ? "" : localStorage.getItem(TOKEN_KEY) ?? "";
+    const res = await axios.get(`${HTTP_BACKEND}/chats/${roomId}`, {
+        headers: { authorization: token }
+    });
     const messages: ChatRow[] = res.data.messages;
 
     // The API returns newest first so the take(1000) keeps the most recent

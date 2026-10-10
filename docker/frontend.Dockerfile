@@ -10,13 +10,10 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/excelidraw-frontend/package.json apps/excelidraw-frontend/
 COPY apps/http-backend/package.json apps/http-backend/
 COPY apps/ws-backend/package.json apps/ws-backend/
-COPY apps/web/package.json apps/web/
 COPY packages/backend-common/package.json packages/backend-common/
 COPY packages/common/package.json packages/common/
 COPY packages/db/package.json packages/db/
-COPY packages/eslint-config/package.json packages/eslint-config/
 COPY packages/typescript-config/package.json packages/typescript-config/
-COPY packages/ui/package.json packages/ui/
 
 RUN pnpm install --frozen-lockfile
 

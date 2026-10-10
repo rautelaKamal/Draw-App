@@ -2,6 +2,14 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config";
 
+// Express's Request carries no userId. Declaring it here is how the verified
+// user reaches the route handlers, and it replaces the @ts-ignore that used to
+// sit on the assignment below.
+declare global {
+    namespace Express {
+        interface Request { userId?: string }
+    }
+}
 
 export function middleware(req: Request, res: Response, next: NextFunction) {
     const token = req.headers["authorization"] ?? "";
@@ -18,7 +26,6 @@ export function middleware(req: Request, res: Response, next: NextFunction) {
             return;
         }
 
-        // @ts-ignore: TODO: Fix this
         req.userId = decoded.userId;
         next();
     } catch (e) {

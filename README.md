@@ -82,18 +82,33 @@ capped at the most recent 1000 shapes; the real fix is periodic snapshotting.
 
 ## Known gaps
 
-- Passwords are stored in plaintext (`// TODO: Hash the pw` in
-  `apps/http-backend/src/index.ts`). Needs bcrypt or argon2.
-- JWTs are signed with no expiry and cannot be revoked.
-- Rooms have authentication but no authorization: any signed-in user can join
-  any room id, and `GET /chats/:roomId` requires no token at all.
+- JWTs expire after seven days but cannot be revoked before that. Logging
+  someone out immediately needs short-lived access tokens plus a refresh token,
+  or a revocation list.
+- Any signed-in user can join any room by its name. That is the same
+  "anyone with the link" model Excalidraw uses, and it is deliberate, but there
+  is no per-room membership table to restrict it further.
 - `ws-backend` keeps connections in a module-level array, so it only runs as a
   single instance. Multiple instances need Redis pub/sub to fan out across
   processes.
-- Socket messages are parsed without validation, unlike the REST routes which
-  are guarded by Zod schemas in `packages/common`.
+- Replay is capped at the most recent 1000 rows, and erase tombstones count
+  toward that cap, so a very busy room can lose its oldest shapes on reload.
+  The fix is periodic snapshotting: store the computed board every N events and
+  replay only what came after.
+- Live order and reload order can differ. Two concurrent writes are broadcast
+  in whichever order finishes first, while replay orders by row id, so the
+  z-order of two simultaneous strokes can swap after a refresh.
+- No automated tests. The replay and tombstone logic is the obvious first one.
 
-## Assignment
+## Origin
 
-Complete pencil functionality
-Add panning and zooming functionality
+Started from the 100xDevs cohort's collaborative whiteboard project, which is a
+chat server repurposed to carry shapes. That is why messages are stored in a
+`Chat` table and the socket message type for a shape is `chat`.
+
+What I added on top: the real authentication flow replacing a hardcoded token,
+the room create and join flow, the eraser built on append-only tombstones with
+hit testing inside shapes, de-duplication of echoed shapes, password hashing
+with bcrypt, Zod validation and authorization on the socket layer, a Docker
+Compose stack with a one-shot migration service, and a single-port production
+deploy where the WebSocket server mounts onto the HTTP server.

@@ -21,8 +21,7 @@ app.post("/signup", async (req, res) => {
 
     const parsedData = CreateUserSchema.safeParse(req.body);
     if (!parsedData.success) {
-        console.log(parsedData.error);
-        res.json({
+        res.status(400).json({
             message: "Incorrect inputs"
         })
         return;
@@ -41,7 +40,7 @@ app.post("/signup", async (req, res) => {
             userId: user.id
         })
     } catch(e) {
-        res.status(411).json({
+        res.status(409).json({
             message: "User already exists with this username"
         })
     }
@@ -50,7 +49,7 @@ app.post("/signup", async (req, res) => {
 app.post("/signin", async (req, res) => {
     const parsedData = SigninSchema.safeParse(req.body);
     if (!parsedData.success) {
-        res.json({
+        res.status(400).json({
             message: "Incorrect inputs"
         })
         return;
@@ -74,9 +73,11 @@ app.post("/signin", async (req, res) => {
         return;
     }
 
+    // Nothing can revoke a signed token, so an expiry is the only thing
+    // limiting the damage if one is stolen.
     const token = jwt.sign({
-        userId: user?.id
-    }, JWT_SECRET);
+        userId: user.id
+    }, JWT_SECRET, { expiresIn: "7d" });
 
     res.json({
         token
@@ -86,13 +87,16 @@ app.post("/signin", async (req, res) => {
 app.post("/room", middleware, async (req, res) => {
     const parsedData = CreateRoomSchema.safeParse(req.body);
     if (!parsedData.success) {
-        res.json({
+        res.status(400).json({
             message: "Incorrect inputs"
         })
         return;
     }
-    // @ts-ignore: TODO: Fix this
     const userId = req.userId;
+    if (!userId) {
+        res.status(401).json({ message: "Unauthorized" });
+        return;
+    }
 
     try {
         const room = await prismaClient.room.create({
@@ -106,16 +110,17 @@ app.post("/room", middleware, async (req, res) => {
             roomId: room.id
         })
     } catch(e) {
-        res.status(411).json({
+        res.status(409).json({
             message: "Room already exists with this name"
         })
     }
 })
 
-app.get("/chats/:roomId", async (req, res) => {
+// Behind the middleware: without it anyone could read any room's drawings by
+// walking the room ids 1, 2, 3 and up.
+app.get("/chats/:roomId", middleware, async (req, res) => {
     try {
         const roomId = Number(req.params.roomId);
-        console.log(req.params.roomId);
         const messages = await prismaClient.chat.findMany({
             where: {
                 roomId: roomId
@@ -145,6 +150,13 @@ app.get("/room/:slug", async (req, res) => {
             slug
         }
     });
+
+    if (!room) {
+        res.status(404).json({
+            message: "No room with that name"
+        })
+        return;
+    }
 
     res.json({
         room

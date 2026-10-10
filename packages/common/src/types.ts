@@ -16,3 +16,27 @@ export const SigninSchema = z.object({
 export const CreateRoomSchema = z.object({
     name: z.string().min(3).max(20),
 })
+
+// Socket messages arrive from the network like any request body, so they get
+// the same Zod treatment as the REST routes. Without this one malformed
+// message throws inside an async handler, which Node turns into an unhandled
+// rejection and exits the process, disconnecting every user in every room.
+export const WsMessageSchema = z.discriminatedUnion("type", [
+    z.object({
+        type: z.literal("join_room"),
+        roomId: z.string().min(1).max(64),
+    }),
+    z.object({
+        type: z.literal("leave_room"),
+        roomId: z.string().min(1).max(64),
+    }),
+    z.object({
+        type: z.literal("chat"),
+        roomId: z.string().min(1).max(64),
+        // One shape, serialised. The cap stops a single client storing and
+        // broadcasting megabytes, which would then replay on every load.
+        message: z.string().max(32 * 1024),
+    }),
+])
+
+export type WsMessage = z.infer<typeof WsMessageSchema>

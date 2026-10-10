@@ -25,24 +25,16 @@ export function AuthPage({isSignin}: {
                     username,
                     password
                 });
-                // The backend answers 200 with just a message when validation fails,
-                // so the token itself is what tells us the request actually worked.
-                if (!res.data.token) {
-                    setError(res.data.message ?? "Could not sign in");
-                    return;
-                }
+                // The backend now answers 4xx on failure, so anything reaching
+                // here succeeded and axios has already thrown otherwise.
                 localStorage.setItem(TOKEN_KEY, res.data.token);
                 router.push("/rooms");
             } else {
-                const res = await axios.post(`${HTTP_BACKEND}/signup`, {
+                await axios.post(`${HTTP_BACKEND}/signup`, {
                     username,
                     password,
                     name
                 });
-                if (!res.data.userId) {
-                    setError(res.data.message ?? "Could not sign up");
-                    return;
-                }
                 router.push("/signin");
             }
         } catch (e) {
